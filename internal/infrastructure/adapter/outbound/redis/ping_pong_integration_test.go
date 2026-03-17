@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apex20/monorepo/apps/backend/internal/infrastructure/adapter/outbound/redis"
+	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/redis"
 	redis_lib "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

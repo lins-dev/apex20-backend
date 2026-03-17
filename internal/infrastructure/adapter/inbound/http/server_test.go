@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	// Alias para evitar conflito com net/http
-	adapter "github.com/apex20/monorepo/apps/backend/internal/infrastructure/adapter/inbound/http"
+	adapter "github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
 )
 
 func TestHTTPServer_HealthCheck(t *testing.T) {
