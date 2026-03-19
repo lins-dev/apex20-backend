@@ -67,3 +67,7 @@ func (s *ChiServer) Start(port string) error {
 func (s *ChiServer) GetHandler() http.Handler {
 	return s.router
 }
+
+func (s *ChiServer) GetAPI() huma.API {
+	return s.api
+}

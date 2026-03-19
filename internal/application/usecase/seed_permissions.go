@@ -19,16 +19,19 @@ func NewSeedPermissionsUseCase(repo port.PermissionRepository) *SeedPermissionsU
 	return &SeedPermissionsUseCase{repo: repo}
 }
 
-func (uc *SeedPermissionsUseCase) Execute(ctx context.Context) error {
+// Execute seeds all platform permissions. It is idempotent — skips if any permission already exists.
+// Returns the map of permission name → UUID for use by SeedRolePermissionsUseCase.
+func (uc *SeedPermissionsUseCase) Execute(ctx context.Context) (map[string]uuid.UUID, error) {
 	exists, err := uc.repo.ExistsAny(ctx)
 	if err != nil {
-		return fmt.Errorf("checking existing permissions: %w", err)
+		return nil, fmt.Errorf("checking existing permissions: %w", err)
 	}
 	if exists {
-		return nil
+		return nil, nil
 	}
 
 	permissions := []permission.Permission{
+		// Game permissions
 		{Name: "campaign.create", Description: "Criar uma nova campanha"},
 		{Name: "campaign.update", Description: "Editar configurações de uma campanha"},
 		{Name: "campaign.delete", Description: "Deletar uma campanha"},
@@ -38,60 +41,34 @@ func (uc *SeedPermissionsUseCase) Execute(ctx context.Context) error {
 		{Name: "chat.send", Description: "Enviar mensagens no chat"},
 		{Name: "chat.roll", Description: "Realizar rolagens de dados no chat"},
 		{Name: "gm.fog_control", Description: "Controlar névoa de guerra e visibilidade"},
+		// Admin permissions
+		{Name: "permission.list", Description: "Listar permissões"},
+		{Name: "permission.create", Description: "Criar permissão"},
+		{Name: "permission.update", Description: "Editar permissão"},
+		{Name: "permission.delete", Description: "Deletar permissão"},
+		{Name: "role_permission.list", Description: "Listar permissões de roles"},
+		{Name: "role_permission.create", Description: "Atribuir permissão a uma role"},
+		{Name: "role_permission.delete", Description: "Remover permissão de uma role"},
 	}
 
 	now := time.Now()
-	permissionIDs := make(map[string]uuid.UUID, len(permissions))
+	ids := make(map[string]uuid.UUID, len(permissions))
 
 	for _, p := range permissions {
 		id, err := uuid.NewV7()
 		if err != nil {
-			return fmt.Errorf("generating uuid for permission %q: %w", p.Name, err)
+			return nil, fmt.Errorf("generating uuid for permission %q: %w", p.Name, err)
 		}
 		p.ID = id
 		p.CreatedAt = now
 		p.UpdatedAt = now
 
 		if err := uc.repo.CreatePermission(ctx, p); err != nil {
-			return fmt.Errorf("creating permission %q: %w", p.Name, err)
+			return nil, fmt.Errorf("creating permission %q: %w", p.Name, err)
 		}
 
-		permissionIDs[p.Name] = id
+		ids[p.Name] = id
 	}
 
-	rolePermissions := map[permission.Role][]string{
-		permission.RoleGM: {
-			"campaign.create", "campaign.update", "campaign.delete",
-			"scene.manage", "token.move.any", "token.move.own",
-			"chat.send", "chat.roll", "gm.fog_control",
-		},
-		permission.RolePlayer: {
-			"token.move.own", "chat.send", "chat.roll",
-		},
-		permission.RoleTrusted: {
-			"token.move.own", "token.move.any",
-			"chat.send", "chat.roll", "scene.manage",
-		},
-	}
-
-	for role, names := range rolePermissions {
-		for _, name := range names {
-			id, err := uuid.NewV7()
-			if err != nil {
-				return fmt.Errorf("generating uuid for role_permission %s/%s: %w", role, name, err)
-			}
-			rp := permission.RolePermission{
-				ID:           id,
-				Role:         role,
-				PermissionID: permissionIDs[name],
-				CreatedAt:    now,
-				UpdatedAt:    now,
-			}
-			if err := uc.repo.CreateRolePermission(ctx, rp); err != nil {
-				return fmt.Errorf("creating role_permission %s/%s: %w", role, name, err)
-			}
-		}
-	}
-
-	return nil
+	return ids, nil
 }
