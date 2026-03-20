@@ -162,6 +162,23 @@ func TestPermissionHandler_Delete_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
+func TestPermissionHandler_List_ResponseBody(t *testing.T) {
+	id := uuid.New()
+	server := newServerWithPermissions([]permission.Permission{
+		{ID: id, Name: "chat.send", Description: "Enviar mensagens", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: uuid.New(), Name: "chat.roll", Description: "Rolar dados", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/permissions", nil)
+	rr := httptest.NewRecorder()
+	server.GetHandler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	perms := permissionsFromBody(t, rr.Body.String())
+	assert.Len(t, perms, 2)
+	assert.Equal(t, "chat.send", perms[0]["name"])
+}
+
 func TestPermissionHandler_Create_InvalidBody(t *testing.T) {
 	server := newServerWithPermissions(nil)
 
