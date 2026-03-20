@@ -13,7 +13,7 @@ sql:
         overrides:
           - db_type: "uuid"
             go_type: "github.com/google/uuid.UUID"
-          - column: "users.role"
+          - column: "campaign_members.role"
             go_type:
               import: "github.com/apex20/contracts/proto/apex20/v1"
               package: "apex20v1"

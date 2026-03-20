@@ -28,5 +28,5 @@ func TestRoleHandler_List(t *testing.T) {
 	assert.Contains(t, body, "ROLE_GM")
 	assert.Contains(t, body, "ROLE_PLAYER")
 	assert.Contains(t, body, "ROLE_TRUSTED")
-	assert.Contains(t, body, "ROLE_ADMIN")
+	assert.NotContains(t, body, "ROLE_ADMIN")
 }

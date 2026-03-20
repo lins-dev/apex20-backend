@@ -18,8 +18,6 @@ func buildPermissionIDs() map[string]uuid.UUID {
 		"campaign.create", "campaign.update", "campaign.delete",
 		"scene.manage", "token.move.any", "token.move.own",
 		"chat.send", "chat.roll", "gm.fog_control",
-		"permission.list", "permission.create", "permission.update", "permission.delete",
-		"role_permission.list", "role_permission.create", "role_permission.delete",
 	}
 	ids := make(map[string]uuid.UUID, len(names))
 	for _, n := range names {
@@ -47,7 +45,7 @@ func TestSeedRolePermissionsUseCase_Execute_CreatesAllRolePermissions(t *testing
 	require.NoError(t, err)
 	assert.NotEmpty(t, repo.createdRolePerms)
 
-	// Verifica que todas as 4 roles foram mapeadas
+	// Verifica que todas as 3 roles de campanha foram mapeadas
 	roles := make(map[permission.Role]struct{})
 	for _, rp := range repo.createdRolePerms {
 		roles[rp.Role] = struct{}{}
@@ -55,19 +53,18 @@ func TestSeedRolePermissionsUseCase_Execute_CreatesAllRolePermissions(t *testing
 	assert.Contains(t, roles, permission.RoleGM)
 	assert.Contains(t, roles, permission.RolePlayer)
 	assert.Contains(t, roles, permission.RoleTrusted)
-	assert.Contains(t, roles, permission.RoleAdmin)
 
-	// Admin deve ter mais permissões que player
-	var adminCount, playerCount int
+	// GM deve ter mais permissões que player
+	var gmCount, playerCount int
 	for _, rp := range repo.createdRolePerms {
 		switch rp.Role {
-		case permission.RoleAdmin:
-			adminCount++
+		case permission.RoleGM:
+			gmCount++
 		case permission.RolePlayer:
 			playerCount++
 		}
 	}
-	assert.Greater(t, adminCount, playerCount)
+	assert.Greater(t, gmCount, playerCount)
 }
 
 func TestSeedRolePermissionsUseCase_Execute_ReturnsErrorOnCreateFailure(t *testing.T) {

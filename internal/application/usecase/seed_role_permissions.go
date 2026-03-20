@@ -39,13 +39,6 @@ func (uc *SeedRolePermissionsUseCase) Execute(ctx context.Context, permissionIDs
 			"token.move.own", "token.move.any",
 			"chat.send", "chat.roll", "scene.manage",
 		},
-		permission.RoleAdmin: {
-			"campaign.create", "campaign.update", "campaign.delete",
-			"scene.manage", "token.move.any", "token.move.own",
-			"chat.send", "chat.roll", "gm.fog_control",
-			"permission.list", "permission.create", "permission.update", "permission.delete",
-			"role_permission.list", "role_permission.create", "role_permission.delete",
-		},
 	}
 
 	now := time.Now()
