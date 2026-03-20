@@ -10,5 +10,4 @@ const (
 	RoleGM      = apexv1.Role_ROLE_GM
 	RolePlayer  = apexv1.Role_ROLE_PLAYER
 	RoleTrusted = apexv1.Role_ROLE_TRUSTED
-	RoleAdmin   = apexv1.Role_ROLE_ADMIN
 )

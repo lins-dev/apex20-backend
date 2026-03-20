@@ -24,20 +24,32 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createCampaignMemberStmt, err = db.PrepareContext(ctx, createCampaignMember); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCampaignMember: %w", err)
+	}
 	if q.createPermissionStmt, err = db.PrepareContext(ctx, createPermission); err != nil {
 		return nil, fmt.Errorf("error preparing query CreatePermission: %w", err)
 	}
 	if q.createRolePermissionStmt, err = db.PrepareContext(ctx, createRolePermission); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateRolePermission: %w", err)
 	}
+	if q.deleteCampaignMemberStmt, err = db.PrepareContext(ctx, deleteCampaignMember); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCampaignMember: %w", err)
+	}
 	if q.existsAnyPermissionStmt, err = db.PrepareContext(ctx, existsAnyPermission); err != nil {
 		return nil, fmt.Errorf("error preparing query ExistsAnyPermission: %w", err)
+	}
+	if q.getCampaignMemberStmt, err = db.PrepareContext(ctx, getCampaignMember); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCampaignMember: %w", err)
 	}
 	if q.getPermissionByIDStmt, err = db.PrepareContext(ctx, getPermissionByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetPermissionByID: %w", err)
 	}
 	if q.getRolePermissionByIDStmt, err = db.PrepareContext(ctx, getRolePermissionByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetRolePermissionByID: %w", err)
+	}
+	if q.listCampaignMembersStmt, err = db.PrepareContext(ctx, listCampaignMembers); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCampaignMembers: %w", err)
 	}
 	if q.listPermissionsStmt, err = db.PrepareContext(ctx, listPermissions); err != nil {
 		return nil, fmt.Errorf("error preparing query ListPermissions: %w", err)
@@ -51,6 +63,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.softDeleteRolePermissionStmt, err = db.PrepareContext(ctx, softDeleteRolePermission); err != nil {
 		return nil, fmt.Errorf("error preparing query SoftDeleteRolePermission: %w", err)
 	}
+	if q.updateCampaignMemberRoleStmt, err = db.PrepareContext(ctx, updateCampaignMemberRole); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCampaignMemberRole: %w", err)
+	}
 	if q.updatePermissionStmt, err = db.PrepareContext(ctx, updatePermission); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdatePermission: %w", err)
 	}
@@ -59,6 +74,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createCampaignMemberStmt != nil {
+		if cerr := q.createCampaignMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCampaignMemberStmt: %w", cerr)
+		}
+	}
 	if q.createPermissionStmt != nil {
 		if cerr := q.createPermissionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createPermissionStmt: %w", cerr)
@@ -69,9 +89,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createRolePermissionStmt: %w", cerr)
 		}
 	}
+	if q.deleteCampaignMemberStmt != nil {
+		if cerr := q.deleteCampaignMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCampaignMemberStmt: %w", cerr)
+		}
+	}
 	if q.existsAnyPermissionStmt != nil {
 		if cerr := q.existsAnyPermissionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing existsAnyPermissionStmt: %w", cerr)
+		}
+	}
+	if q.getCampaignMemberStmt != nil {
+		if cerr := q.getCampaignMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCampaignMemberStmt: %w", cerr)
 		}
 	}
 	if q.getPermissionByIDStmt != nil {
@@ -82,6 +112,11 @@ func (q *Queries) Close() error {
 	if q.getRolePermissionByIDStmt != nil {
 		if cerr := q.getRolePermissionByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getRolePermissionByIDStmt: %w", cerr)
+		}
+	}
+	if q.listCampaignMembersStmt != nil {
+		if cerr := q.listCampaignMembersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCampaignMembersStmt: %w", cerr)
 		}
 	}
 	if q.listPermissionsStmt != nil {
@@ -102,6 +137,11 @@ func (q *Queries) Close() error {
 	if q.softDeleteRolePermissionStmt != nil {
 		if cerr := q.softDeleteRolePermissionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing softDeleteRolePermissionStmt: %w", cerr)
+		}
+	}
+	if q.updateCampaignMemberRoleStmt != nil {
+		if cerr := q.updateCampaignMemberRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCampaignMemberRoleStmt: %w", cerr)
 		}
 	}
 	if q.updatePermissionStmt != nil {
@@ -148,15 +188,20 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                           DBTX
 	tx                           *sql.Tx
+	createCampaignMemberStmt     *sql.Stmt
 	createPermissionStmt         *sql.Stmt
 	createRolePermissionStmt     *sql.Stmt
+	deleteCampaignMemberStmt     *sql.Stmt
 	existsAnyPermissionStmt      *sql.Stmt
+	getCampaignMemberStmt        *sql.Stmt
 	getPermissionByIDStmt        *sql.Stmt
 	getRolePermissionByIDStmt    *sql.Stmt
+	listCampaignMembersStmt      *sql.Stmt
 	listPermissionsStmt          *sql.Stmt
 	listRolePermissionsStmt      *sql.Stmt
 	softDeletePermissionStmt     *sql.Stmt
 	softDeleteRolePermissionStmt *sql.Stmt
+	updateCampaignMemberRoleStmt *sql.Stmt
 	updatePermissionStmt         *sql.Stmt
 }
 
@@ -164,15 +209,20 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                           tx,
 		tx:                           tx,
+		createCampaignMemberStmt:     q.createCampaignMemberStmt,
 		createPermissionStmt:         q.createPermissionStmt,
 		createRolePermissionStmt:     q.createRolePermissionStmt,
+		deleteCampaignMemberStmt:     q.deleteCampaignMemberStmt,
 		existsAnyPermissionStmt:      q.existsAnyPermissionStmt,
+		getCampaignMemberStmt:        q.getCampaignMemberStmt,
 		getPermissionByIDStmt:        q.getPermissionByIDStmt,
 		getRolePermissionByIDStmt:    q.getRolePermissionByIDStmt,
+		listCampaignMembersStmt:      q.listCampaignMembersStmt,
 		listPermissionsStmt:          q.listPermissionsStmt,
 		listRolePermissionsStmt:      q.listRolePermissionsStmt,
 		softDeletePermissionStmt:     q.softDeletePermissionStmt,
 		softDeleteRolePermissionStmt: q.softDeleteRolePermissionStmt,
+		updateCampaignMemberRoleStmt: q.updateCampaignMemberRoleStmt,
 		updatePermissionStmt:         q.updatePermissionStmt,
 	}
 }

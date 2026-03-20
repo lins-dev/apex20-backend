@@ -33,7 +33,6 @@ func RegisterRoleHandler(api huma.API) {
 			permission.RoleGM,
 			permission.RolePlayer,
 			permission.RoleTrusted,
-			permission.RoleAdmin,
 		}
 		out := &listRolesOutput{}
 		out.Body.Roles = make([]roleEntry, len(roles))

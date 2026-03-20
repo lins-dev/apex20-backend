@@ -11,15 +11,20 @@ import (
 )
 
 type Querier interface {
+	CreateCampaignMember(ctx context.Context, arg CreateCampaignMemberParams) error
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) error
 	CreateRolePermission(ctx context.Context, arg CreateRolePermissionParams) error
+	DeleteCampaignMember(ctx context.Context, arg DeleteCampaignMemberParams) (int64, error)
 	ExistsAnyPermission(ctx context.Context) (bool, error)
+	GetCampaignMember(ctx context.Context, arg GetCampaignMemberParams) (CampaignMember, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	GetRolePermissionByID(ctx context.Context, id uuid.UUID) (RolePermission, error)
+	ListCampaignMembers(ctx context.Context, campaignID uuid.UUID) ([]CampaignMember, error)
 	ListPermissions(ctx context.Context) ([]Permission, error)
 	ListRolePermissions(ctx context.Context) ([]RolePermission, error)
 	SoftDeletePermission(ctx context.Context, arg SoftDeletePermissionParams) (int64, error)
 	SoftDeleteRolePermission(ctx context.Context, arg SoftDeleteRolePermissionParams) (int64, error)
+	UpdateCampaignMemberRole(ctx context.Context, arg UpdateCampaignMemberRoleParams) error
 	UpdatePermission(ctx context.Context, arg UpdatePermissionParams) error
 }
 
