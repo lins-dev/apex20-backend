@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/apex20/backend/internal/application/usecase"
+	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
 	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/repository"
 )
 
@@ -31,17 +30,17 @@ func main() {
 	permRepo := repository.NewPostgresPermissionRepository(db)
 	rolePermRepo := repository.NewPostgresRolePermissionRepository(db)
 
-	seedPerms := usecase.NewSeedPermissionsUseCase(permRepo)
-	seedRolePerms := usecase.NewSeedRolePermissionsUseCase(rolePermRepo)
+	server := http.NewChiServer()
+	http.RegisterPermissionHandler(server.GetAPI(), permRepo)
+	http.RegisterRolePermissionHandler(server.GetAPI(), rolePermRepo)
+	http.RegisterRoleHandler(server.GetAPI())
 
-	permissionIDs, err := seedPerms.Execute(context.Background())
-	if err != nil {
-		log.Fatalf("seeding permissions: %v", err)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	if err := seedRolePerms.Execute(context.Background(), permissionIDs); err != nil {
-		log.Fatalf("seeding role permissions: %v", err)
+	if err := server.Start(port); err != nil {
+		log.Fatalf("server error: %v", err)
 	}
-
-	log.Println("seed completed successfully")
 }

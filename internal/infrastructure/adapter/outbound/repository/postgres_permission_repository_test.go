@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/google/uuid"
+
+	"github.com/apex20/backend/internal/application/port"
 	"github.com/apex20/backend/internal/domain/permission"
 	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/repository"
-
-	"github.com/google/uuid"
 )
 
 func openTestDB(t *testing.T) *sql.DB {
@@ -32,94 +33,132 @@ func openTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestPostgresPermissionRepository_ExistsAny_ReturnsFalseWhenEmpty(t *testing.T) {
-	db := openTestDB(t)
+func cleanDB(t *testing.T, db *sql.DB) {
+	t.Helper()
 	ctx := context.Background()
-
 	_, err := db.ExecContext(ctx, "DELETE FROM role_permissions")
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, "DELETE FROM permissions")
 	require.NoError(t, err)
+}
+
+func createTestPermission(t *testing.T, repo *repository.PostgresPermissionRepository, name string) permission.Permission {
+	t.Helper()
+	id, err := uuid.NewV7()
+	require.NoError(t, err)
+	now := time.Now()
+	p := permission.Permission{
+		ID:          id,
+		Name:        name,
+		Description: "Permissão de teste",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	require.NoError(t, repo.CreatePermission(context.Background(), p))
+	return p
+}
+
+func TestPostgresPermissionRepository_ExistsAny_ReturnsFalseWhenEmpty(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
 
 	repo := repository.NewPostgresPermissionRepository(db)
-	exists, err := repo.ExistsAny(ctx)
+	exists, err := repo.ExistsAny(context.Background())
 
 	require.NoError(t, err)
 	assert.False(t, exists)
 }
 
-func TestPostgresPermissionRepository_CreatePermission_AndExistsAny(t *testing.T) {
+func TestPostgresPermissionRepository_CreateAndExistsAny(t *testing.T) {
 	db := openTestDB(t)
-	ctx := context.Background()
-
-	_, err := db.ExecContext(ctx, "DELETE FROM role_permissions")
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "DELETE FROM permissions")
-	require.NoError(t, err)
+	cleanDB(t, db)
 
 	repo := repository.NewPostgresPermissionRepository(db)
+	createTestPermission(t, repo, "test.permission")
 
-	id, err := uuid.NewV7()
-	require.NoError(t, err)
-
-	p := permission.Permission{
-		ID:          id,
-		Name:        "test.permission",
-		Description: "Permissão de teste",
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-
-	err = repo.CreatePermission(ctx, p)
-	require.NoError(t, err)
-
-	exists, err := repo.ExistsAny(ctx)
+	exists, err := repo.ExistsAny(context.Background())
 	require.NoError(t, err)
 	assert.True(t, exists)
 }
 
-func TestPostgresPermissionRepository_CreateRolePermission(t *testing.T) {
+func TestPostgresPermissionRepository_ListPermissions(t *testing.T) {
 	db := openTestDB(t)
-	ctx := context.Background()
-
-	_, err := db.ExecContext(ctx, "DELETE FROM role_permissions")
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "DELETE FROM permissions")
-	require.NoError(t, err)
+	cleanDB(t, db)
 
 	repo := repository.NewPostgresPermissionRepository(db)
-	now := time.Now()
+	createTestPermission(t, repo, "perm.a")
+	createTestPermission(t, repo, "perm.b")
 
-	permID, err := uuid.NewV7()
+	list, err := repo.ListPermissions(context.Background())
 	require.NoError(t, err)
+	assert.Len(t, list, 2)
+}
 
-	err = repo.CreatePermission(ctx, permission.Permission{
-		ID:          permID,
-		Name:        "chat.send",
-		Description: "Enviar mensagens",
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	})
+func TestPostgresPermissionRepository_GetPermissionByID(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
+
+	repo := repository.NewPostgresPermissionRepository(db)
+	created := createTestPermission(t, repo, "get.test")
+
+	got, err := repo.GetPermissionByID(context.Background(), created.ID)
 	require.NoError(t, err)
+	assert.Equal(t, created.ID, got.ID)
+	assert.Equal(t, created.Name, got.Name)
+}
 
-	rpID, err := uuid.NewV7()
+func TestPostgresPermissionRepository_GetPermissionByID_NotFound(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
+
+	repo := repository.NewPostgresPermissionRepository(db)
+	_, err := repo.GetPermissionByID(context.Background(), uuid.New())
+
+	assert.ErrorIs(t, err, port.ErrNotFound)
+}
+
+func TestPostgresPermissionRepository_UpdatePermission(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
+
+	repo := repository.NewPostgresPermissionRepository(db)
+	created := createTestPermission(t, repo, "update.test")
+
+	updated := created
+	updated.Name = "update.test.renamed"
+	updated.Description = "Nova descrição"
+	updated.UpdatedAt = time.Now()
+
+	require.NoError(t, repo.UpdatePermission(context.Background(), updated))
+
+	got, err := repo.GetPermissionByID(context.Background(), created.ID)
 	require.NoError(t, err)
+	assert.Equal(t, "update.test.renamed", got.Name)
+	assert.Equal(t, "Nova descrição", got.Description)
+}
 
-	rp := permission.RolePermission{
-		ID:           rpID,
-		Role:         permission.RolePlayer,
-		PermissionID: permID,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
+func TestPostgresPermissionRepository_DeletePermission(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
 
-	err = repo.CreateRolePermission(ctx, rp)
+	repo := repository.NewPostgresPermissionRepository(db)
+	created := createTestPermission(t, repo, "delete.test")
+
+	deleted, err := repo.DeletePermission(context.Background(), created.ID, time.Now())
 	require.NoError(t, err)
+	assert.True(t, deleted)
 
-	var count int
-	err = db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM role_permissions WHERE id = $1", rpID,
-	).Scan(&count)
+	_, err = repo.GetPermissionByID(context.Background(), created.ID)
+	assert.ErrorIs(t, err, port.ErrNotFound)
+}
+
+func TestPostgresPermissionRepository_DeletePermission_NotFound(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
+
+	repo := repository.NewPostgresPermissionRepository(db)
+	deleted, err := repo.DeletePermission(context.Background(), uuid.New(), time.Now())
+
 	require.NoError(t, err)
-	assert.Equal(t, 1, count)
+	assert.False(t, deleted)
 }
