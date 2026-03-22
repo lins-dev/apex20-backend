@@ -21,12 +21,18 @@ func NewPostgresCampaignRepository(db *sql.DB) *PostgresCampaignRepository {
 	return &PostgresCampaignRepository{db: db, queries: repositorygen.New(db)}
 }
 
-func (r *PostgresCampaignRepository) CreateCampaignWithMember(ctx context.Context, c campaign.Campaign, m campaign.Member) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+func (r *PostgresCampaignRepository) CreateCampaignWithMember(ctx context.Context, c campaign.Campaign, m campaign.Member) (err error) {
+	tx, txErr := r.db.BeginTx(ctx, nil)
+	if txErr != nil {
+		return txErr
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			if err == nil {
+				err = rbErr
+			}
+		}
+	}()
 
 	q := r.queries.WithTx(tx)
 
