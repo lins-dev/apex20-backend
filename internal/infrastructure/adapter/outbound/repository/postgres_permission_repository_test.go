@@ -36,10 +36,10 @@ func openTestDB(t *testing.T) *sql.DB {
 func cleanDB(t *testing.T, db *sql.DB) {
 	t.Helper()
 	ctx := context.Background()
-	_, err := db.ExecContext(ctx, "DELETE FROM role_permissions")
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "DELETE FROM permissions")
-	require.NoError(t, err)
+	for _, table := range []string{"campaign_members", "campaigns", "role_permissions", "permissions", "users"} {
+		_, err := db.ExecContext(ctx, "DELETE FROM "+table)
+		require.NoError(t, err)
+	}
 }
 
 func createTestPermission(t *testing.T, repo *repository.PostgresPermissionRepository, name string) permission.Permission {
