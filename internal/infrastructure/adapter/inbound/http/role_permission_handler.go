@@ -13,12 +13,20 @@ import (
 	"github.com/apex20/backend/internal/domain/permission"
 )
 
+// RolePermissionUseCases agrupa os use cases necessários para as rotas de role-permission.
+type RolePermissionUseCases struct {
+	List   port.RolePermissionLister
+	Get    port.RolePermissionGetter
+	Create port.RolePermissionCreator
+	Delete port.RolePermissionDeleter
+}
+
 type rolePermissionResponse struct {
-	ID           uuid.UUID        `json:"id"`
-	Role         permission.Role  `json:"role"`
-	PermissionID uuid.UUID        `json:"permission_id"`
-	CreatedAt    time.Time        `json:"created_at"`
-	UpdatedAt    time.Time        `json:"updated_at"`
+	ID           uuid.UUID       `json:"id"`
+	Role         permission.Role `json:"role"`
+	PermissionID uuid.UUID       `json:"permission_id"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 func toRolePermissionResponse(rp permission.RolePermission) rolePermissionResponse {
@@ -69,7 +77,7 @@ type deleteRolePermissionInput struct {
 }
 
 // RegisterRolePermissionHandler registers all /admin/role-permissions routes on the given API.
-func RegisterRolePermissionHandler(api huma.API, repo port.RolePermissionRepository) {
+func RegisterRolePermissionHandler(api huma.API, uc RolePermissionUseCases) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-role-permissions",
 		Method:      http.MethodGet,
@@ -77,7 +85,7 @@ func RegisterRolePermissionHandler(api huma.API, repo port.RolePermissionReposit
 		Summary:     "List Role Permissions",
 		Tags:        []string{"Admin"},
 	}, func(ctx context.Context, _ *struct{}) (*listRolePermissionsOutput, error) {
-		rps, err := repo.ListRolePermissions(ctx)
+		rps, err := uc.List.Execute(ctx)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list role permissions", err)
 		}
@@ -100,7 +108,7 @@ func RegisterRolePermissionHandler(api huma.API, repo port.RolePermissionReposit
 		if err != nil {
 			return nil, huma.Error422UnprocessableEntity("invalid role permission id", err)
 		}
-		rp, err := repo.GetRolePermissionByID(ctx, id)
+		rp, err := uc.Get.Execute(ctx, id)
 		if err != nil {
 			if errors.Is(err, port.ErrNotFound) {
 				return nil, huma.Error404NotFound("role permission not found")
@@ -118,19 +126,11 @@ func RegisterRolePermissionHandler(api huma.API, repo port.RolePermissionReposit
 		Tags:          []string{"Admin"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, input *createRolePermissionInput) (*createRolePermissionOutput, error) {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to generate id", err)
-		}
-		now := time.Now()
-		rp := permission.RolePermission{
-			ID:           id,
+		rp, err := uc.Create.Execute(ctx, port.CreateRolePermissionInput{
 			Role:         input.Body.Role,
 			PermissionID: input.Body.PermissionID,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		}
-		if err := repo.CreateRolePermission(ctx, rp); err != nil {
+		})
+		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to create role permission", err)
 		}
 		return &createRolePermissionOutput{Body: toRolePermissionResponse(rp)}, nil
@@ -148,7 +148,7 @@ func RegisterRolePermissionHandler(api huma.API, repo port.RolePermissionReposit
 		if err != nil {
 			return nil, huma.Error422UnprocessableEntity("invalid role permission id", err)
 		}
-		deleted, err := repo.DeleteRolePermission(ctx, id, time.Now())
+		deleted, err := uc.Delete.Execute(ctx, id)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to delete role permission", err)
 		}

@@ -13,6 +13,15 @@ import (
 	"github.com/apex20/backend/internal/domain/permission"
 )
 
+// PermissionUseCases agrupa os use cases necessários para as rotas de permissão.
+type PermissionUseCases struct {
+	List   port.PermissionLister
+	Get    port.PermissionGetter
+	Create port.PermissionCreator
+	Update port.PermissionUpdater
+	Delete port.PermissionDeleter
+}
+
 type permissionResponse struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
@@ -83,7 +92,7 @@ type deletePermissionInput struct {
 }
 
 // RegisterPermissionHandler registers all /admin/permissions routes on the given API.
-func RegisterPermissionHandler(api huma.API, repo port.PermissionRepository) {
+func RegisterPermissionHandler(api huma.API, uc PermissionUseCases) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-permissions",
 		Method:      http.MethodGet,
@@ -91,7 +100,7 @@ func RegisterPermissionHandler(api huma.API, repo port.PermissionRepository) {
 		Summary:     "List Permissions",
 		Tags:        []string{"Admin"},
 	}, func(ctx context.Context, _ *struct{}) (*listPermissionsOutput, error) {
-		perms, err := repo.ListPermissions(ctx)
+		perms, err := uc.List.Execute(ctx)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list permissions", err)
 		}
@@ -114,7 +123,7 @@ func RegisterPermissionHandler(api huma.API, repo port.PermissionRepository) {
 		if err != nil {
 			return nil, huma.Error422UnprocessableEntity("invalid permission id", err)
 		}
-		p, err := repo.GetPermissionByID(ctx, id)
+		p, err := uc.Get.Execute(ctx, id)
 		if err != nil {
 			if errors.Is(err, port.ErrNotFound) {
 				return nil, huma.Error404NotFound("permission not found")
@@ -125,26 +134,18 @@ func RegisterPermissionHandler(api huma.API, repo port.PermissionRepository) {
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID:  "create-permission",
-		Method:       http.MethodPost,
-		Path:         "/admin/permissions",
-		Summary:      "Create Permission",
-		Tags:         []string{"Admin"},
+		OperationID:   "create-permission",
+		Method:        http.MethodPost,
+		Path:          "/admin/permissions",
+		Summary:       "Create Permission",
+		Tags:          []string{"Admin"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, input *createPermissionInput) (*createPermissionOutput, error) {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to generate id", err)
-		}
-		now := time.Now()
-		p := permission.Permission{
-			ID:          id,
+		p, err := uc.Create.Execute(ctx, port.CreatePermissionInput{
 			Name:        input.Body.Name,
 			Description: input.Body.Description,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-		}
-		if err := repo.CreatePermission(ctx, p); err != nil {
+		})
+		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to create permission", err)
 		}
 		return &createPermissionOutput{Body: toPermissionResponse(p)}, nil
@@ -161,35 +162,33 @@ func RegisterPermissionHandler(api huma.API, repo port.PermissionRepository) {
 		if err != nil {
 			return nil, huma.Error422UnprocessableEntity("invalid permission id", err)
 		}
-		existing, err := repo.GetPermissionByID(ctx, id)
+		p, err := uc.Update.Execute(ctx, port.UpdatePermissionInput{
+			ID:          id,
+			Name:        input.Body.Name,
+			Description: input.Body.Description,
+		})
 		if err != nil {
 			if errors.Is(err, port.ErrNotFound) {
 				return nil, huma.Error404NotFound("permission not found")
 			}
-			return nil, huma.Error500InternalServerError("failed to get permission", err)
-		}
-		existing.Name = input.Body.Name
-		existing.Description = input.Body.Description
-		existing.UpdatedAt = time.Now()
-		if err := repo.UpdatePermission(ctx, existing); err != nil {
 			return nil, huma.Error500InternalServerError("failed to update permission", err)
 		}
-		return &updatePermissionOutput{Body: toPermissionResponse(existing)}, nil
+		return &updatePermissionOutput{Body: toPermissionResponse(p)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID:  "delete-permission",
-		Method:       http.MethodDelete,
-		Path:         "/admin/permissions/{id}",
-		Summary:      "Delete Permission",
-		Tags:         []string{"Admin"},
+		OperationID:   "delete-permission",
+		Method:        http.MethodDelete,
+		Path:          "/admin/permissions/{id}",
+		Summary:       "Delete Permission",
+		Tags:          []string{"Admin"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, input *deletePermissionInput) (*struct{}, error) {
 		id, err := uuid.Parse(input.ID)
 		if err != nil {
 			return nil, huma.Error422UnprocessableEntity("invalid permission id", err)
 		}
-		deleted, err := repo.DeletePermission(ctx, id, time.Now())
+		deleted, err := uc.Delete.Execute(ctx, id)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to delete permission", err)
 		}

@@ -7,12 +7,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/apex20/backend/internal/application/usecase"
 	adapter "github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
 )
 
 func newServerWithRoles() *adapter.ChiServer {
 	server := adapter.NewChiServer()
-	adapter.RegisterRoleHandler(server.GetAPI())
+	adapter.RegisterRoleHandler(server.GetAPI(), adapter.RoleUseCases{
+		List: usecase.NewListRolesUseCase(),
+	})
 	return server
 }
 

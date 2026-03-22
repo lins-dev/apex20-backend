@@ -14,11 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/apex20/backend/internal/application/port"
+	"github.com/apex20/backend/internal/application/usecase"
 	"github.com/apex20/backend/internal/domain/permission"
 	adapter "github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
 )
 
-// stubPermissionRepository is an in-memory stub for handler tests.
+// stubPermissionRepository is an in-memory stub satisfying all permission use case interfaces.
 type stubPermissionRepository struct {
 	permissions []permission.Permission
 }
@@ -67,8 +68,15 @@ func (s *stubPermissionRepository) DeletePermission(_ context.Context, id uuid.U
 
 func newServerWithPermissions(perms []permission.Permission) *adapter.ChiServer {
 	repo := &stubPermissionRepository{permissions: perms}
+	uc := adapter.PermissionUseCases{
+		List:   usecase.NewListPermissionsUseCase(repo),
+		Get:    usecase.NewGetPermissionUseCase(repo),
+		Create: usecase.NewCreatePermissionUseCase(repo),
+		Update: usecase.NewUpdatePermissionUseCase(repo),
+		Delete: usecase.NewDeletePermissionUseCase(repo),
+	}
 	server := adapter.NewChiServer()
-	adapter.RegisterPermissionHandler(server.GetAPI(), repo)
+	adapter.RegisterPermissionHandler(server.GetAPI(), uc)
 	return server
 }
 

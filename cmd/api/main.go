@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/apex20/backend/internal/application/usecase"
 	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
 	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/repository"
 )
@@ -30,10 +31,28 @@ func main() {
 	permRepo := repository.NewPostgresPermissionRepository(db)
 	rolePermRepo := repository.NewPostgresRolePermissionRepository(db)
 
+	permUC := http.PermissionUseCases{
+		List:   usecase.NewListPermissionsUseCase(permRepo),
+		Get:    usecase.NewGetPermissionUseCase(permRepo),
+		Create: usecase.NewCreatePermissionUseCase(permRepo),
+		Update: usecase.NewUpdatePermissionUseCase(permRepo),
+		Delete: usecase.NewDeletePermissionUseCase(permRepo),
+	}
+
+	rolePermUC := http.RolePermissionUseCases{
+		List:   usecase.NewListRolePermissionsUseCase(rolePermRepo),
+		Get:    usecase.NewGetRolePermissionUseCase(rolePermRepo),
+		Create: usecase.NewCreateRolePermissionUseCase(rolePermRepo),
+		Delete: usecase.NewDeleteRolePermissionUseCase(rolePermRepo),
+	}
+
 	server := http.NewChiServer()
-	http.RegisterPermissionHandler(server.GetAPI(), permRepo)
-	http.RegisterRolePermissionHandler(server.GetAPI(), rolePermRepo)
-	http.RegisterRoleHandler(server.GetAPI())
+	http.RegisterPermissionHandler(server.GetAPI(), permUC)
+	http.RegisterRolePermissionHandler(server.GetAPI(), rolePermUC)
+	roleUC := http.RoleUseCases{
+		List: usecase.NewListRolesUseCase(),
+	}
+	http.RegisterRoleHandler(server.GetAPI(), roleUC)
 
 	port := os.Getenv("PORT")
 	if port == "" {

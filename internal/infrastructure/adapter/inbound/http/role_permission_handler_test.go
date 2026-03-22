@@ -12,11 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/apex20/backend/internal/application/port"
+	"github.com/apex20/backend/internal/application/usecase"
 	"github.com/apex20/backend/internal/domain/permission"
 	adapter "github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
 )
 
-// stubRolePermissionRepository is an in-memory stub for handler tests.
+// stubRolePermissionRepository is an in-memory stub satisfying all role-permission use case interfaces.
 type stubRolePermissionRepository struct {
 	rolePermissions []permission.RolePermission
 }
@@ -51,8 +52,14 @@ func (s *stubRolePermissionRepository) DeleteRolePermission(_ context.Context, i
 
 func newServerWithRolePermissions(rps []permission.RolePermission) *adapter.ChiServer {
 	repo := &stubRolePermissionRepository{rolePermissions: rps}
+	uc := adapter.RolePermissionUseCases{
+		List:   usecase.NewListRolePermissionsUseCase(repo),
+		Get:    usecase.NewGetRolePermissionUseCase(repo),
+		Create: usecase.NewCreateRolePermissionUseCase(repo),
+		Delete: usecase.NewDeleteRolePermissionUseCase(repo),
+	}
 	server := adapter.NewChiServer()
-	adapter.RegisterRolePermissionHandler(server.GetAPI(), repo)
+	adapter.RegisterRolePermissionHandler(server.GetAPI(), uc)
 	return server
 }
 
