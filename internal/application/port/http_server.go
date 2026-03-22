@@ -2,7 +2,7 @@ package port
 
 import "net/http"
 
-// HTTPServer define a interface para o servidor de entrega web.
+// HTTPServer defines the interface for the inbound HTTP server adapter.
 type HTTPServer interface {
 	RegisterRoute(method, path string, handler http.HandlerFunc)
 	Start(port string) error

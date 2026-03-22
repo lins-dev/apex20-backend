@@ -9,7 +9,11 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	appport "github.com/apex20/backend/internal/application/port"
 )
+
+var _ appport.HTTPServer = (*ChiServer)(nil)
 
 type ChiServer struct {
 	router *chi.Mux
