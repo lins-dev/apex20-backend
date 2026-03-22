@@ -30,6 +30,7 @@ func main() {
 
 	permRepo := repository.NewPostgresPermissionRepository(db)
 	rolePermRepo := repository.NewPostgresRolePermissionRepository(db)
+	campaignRepo := repository.NewPostgresCampaignRepository(db)
 
 	permUC := http.PermissionUseCases{
 		List:   usecase.NewListPermissionsUseCase(permRepo),
@@ -53,6 +54,12 @@ func main() {
 		List: usecase.NewListRolesUseCase(),
 	}
 	http.RegisterRoleHandler(server.GetAPI(), roleUC)
+
+	campaignUC := http.CampaignUseCases{
+		Create: usecase.NewCreateCampaignUseCase(campaignRepo),
+	}
+	http.RegisterCampaignHandler(server.GetAPI(), campaignUC)
+
 
 	port := os.Getenv("PORT")
 	if port == "" {

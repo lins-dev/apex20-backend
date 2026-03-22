@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createCampaignStmt, err = db.PrepareContext(ctx, createCampaign); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCampaign: %w", err)
+	}
 	if q.createCampaignMemberStmt, err = db.PrepareContext(ctx, createCampaignMember); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCampaignMember: %w", err)
 	}
@@ -39,6 +42,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.existsAnyPermissionStmt, err = db.PrepareContext(ctx, existsAnyPermission); err != nil {
 		return nil, fmt.Errorf("error preparing query ExistsAnyPermission: %w", err)
 	}
+	if q.getCampaignByIDStmt, err = db.PrepareContext(ctx, getCampaignByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCampaignByID: %w", err)
+	}
 	if q.getCampaignMemberStmt, err = db.PrepareContext(ctx, getCampaignMember); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCampaignMember: %w", err)
 	}
@@ -50,6 +56,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.listCampaignMembersStmt, err = db.PrepareContext(ctx, listCampaignMembers); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCampaignMembers: %w", err)
+	}
+	if q.listCampaignsByUserIDStmt, err = db.PrepareContext(ctx, listCampaignsByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCampaignsByUserID: %w", err)
 	}
 	if q.listPermissionsStmt, err = db.PrepareContext(ctx, listPermissions); err != nil {
 		return nil, fmt.Errorf("error preparing query ListPermissions: %w", err)
@@ -74,6 +83,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createCampaignStmt != nil {
+		if cerr := q.createCampaignStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCampaignStmt: %w", cerr)
+		}
+	}
 	if q.createCampaignMemberStmt != nil {
 		if cerr := q.createCampaignMemberStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCampaignMemberStmt: %w", cerr)
@@ -99,6 +113,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing existsAnyPermissionStmt: %w", cerr)
 		}
 	}
+	if q.getCampaignByIDStmt != nil {
+		if cerr := q.getCampaignByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCampaignByIDStmt: %w", cerr)
+		}
+	}
 	if q.getCampaignMemberStmt != nil {
 		if cerr := q.getCampaignMemberStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCampaignMemberStmt: %w", cerr)
@@ -117,6 +136,11 @@ func (q *Queries) Close() error {
 	if q.listCampaignMembersStmt != nil {
 		if cerr := q.listCampaignMembersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listCampaignMembersStmt: %w", cerr)
+		}
+	}
+	if q.listCampaignsByUserIDStmt != nil {
+		if cerr := q.listCampaignsByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCampaignsByUserIDStmt: %w", cerr)
 		}
 	}
 	if q.listPermissionsStmt != nil {
@@ -188,15 +212,18 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                           DBTX
 	tx                           *sql.Tx
+	createCampaignStmt           *sql.Stmt
 	createCampaignMemberStmt     *sql.Stmt
 	createPermissionStmt         *sql.Stmt
 	createRolePermissionStmt     *sql.Stmt
 	deleteCampaignMemberStmt     *sql.Stmt
 	existsAnyPermissionStmt      *sql.Stmt
+	getCampaignByIDStmt          *sql.Stmt
 	getCampaignMemberStmt        *sql.Stmt
 	getPermissionByIDStmt        *sql.Stmt
 	getRolePermissionByIDStmt    *sql.Stmt
 	listCampaignMembersStmt      *sql.Stmt
+	listCampaignsByUserIDStmt    *sql.Stmt
 	listPermissionsStmt          *sql.Stmt
 	listRolePermissionsStmt      *sql.Stmt
 	softDeletePermissionStmt     *sql.Stmt
@@ -209,15 +236,18 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                           tx,
 		tx:                           tx,
+		createCampaignStmt:           q.createCampaignStmt,
 		createCampaignMemberStmt:     q.createCampaignMemberStmt,
 		createPermissionStmt:         q.createPermissionStmt,
 		createRolePermissionStmt:     q.createRolePermissionStmt,
 		deleteCampaignMemberStmt:     q.deleteCampaignMemberStmt,
 		existsAnyPermissionStmt:      q.existsAnyPermissionStmt,
+		getCampaignByIDStmt:          q.getCampaignByIDStmt,
 		getCampaignMemberStmt:        q.getCampaignMemberStmt,
 		getPermissionByIDStmt:        q.getPermissionByIDStmt,
 		getRolePermissionByIDStmt:    q.getRolePermissionByIDStmt,
 		listCampaignMembersStmt:      q.listCampaignMembersStmt,
+		listCampaignsByUserIDStmt:    q.listCampaignsByUserIDStmt,
 		listPermissionsStmt:          q.listPermissionsStmt,
 		listRolePermissionsStmt:      q.listRolePermissionsStmt,
 		softDeletePermissionStmt:     q.softDeletePermissionStmt,
