@@ -39,6 +39,20 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 	return err
 }
 
+const deleteCampaign = `-- name: DeleteCampaign :execrows
+UPDATE campaigns
+SET deleted_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) DeleteCampaign(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.exec(ctx, q.deleteCampaignStmt, deleteCampaign, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getCampaignByID = `-- name: GetCampaignByID :one
 SELECT id, user_id, name, description, created_at, updated_at, deleted_at
 FROM campaigns
@@ -96,4 +110,32 @@ func (q *Queries) ListCampaignsByUserID(ctx context.Context, userID uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCampaign = `-- name: UpdateCampaign :one
+UPDATE campaigns
+SET name = $2, description = $3, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, user_id, name, description, created_at, updated_at, deleted_at
+`
+
+type UpdateCampaignParams struct {
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+}
+
+func (q *Queries) UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (Campaign, error) {
+	row := q.queryRow(ctx, q.updateCampaignStmt, updateCampaign, arg.ID, arg.Name, arg.Description)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }

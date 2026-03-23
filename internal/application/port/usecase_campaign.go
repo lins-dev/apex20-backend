@@ -21,8 +21,30 @@ type InviteMemberInput struct {
 	Role       permission.Role
 }
 
+type UpdateCampaignInput struct {
+	ID          uuid.UUID
+	Name        string
+	Description *string
+}
+
 type CampaignCreator interface {
 	Execute(ctx context.Context, input CreateCampaignInput) (campaign.Campaign, error)
+}
+
+type CampaignLister interface {
+	Execute(ctx context.Context, userID uuid.UUID) ([]campaign.Campaign, error)
+}
+
+type CampaignGetter interface {
+	Execute(ctx context.Context, id uuid.UUID) (campaign.Campaign, error)
+}
+
+type CampaignUpdater interface {
+	Execute(ctx context.Context, input UpdateCampaignInput) (campaign.Campaign, error)
+}
+
+type CampaignDeleter interface {
+	Execute(ctx context.Context, id uuid.UUID) error
 }
 
 type MemberInviter interface {

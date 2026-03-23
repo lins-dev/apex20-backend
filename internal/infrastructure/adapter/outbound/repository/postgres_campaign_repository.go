@@ -72,6 +72,48 @@ func (r *PostgresCampaignRepository) GetCampaignByID(ctx context.Context, id uui
 	return toCampaignDomain(row), nil
 }
 
+func (r *PostgresCampaignRepository) ListCampaignsByUserID(ctx context.Context, userID uuid.UUID) ([]campaign.Campaign, error) {
+	rows, err := r.queries.ListCampaignsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	campaigns := make([]campaign.Campaign, len(rows))
+	for i, row := range rows {
+		campaigns[i] = toCampaignDomain(row)
+	}
+	return campaigns, nil
+}
+
+func (r *PostgresCampaignRepository) UpdateCampaign(ctx context.Context, id uuid.UUID, name string, description *string) (campaign.Campaign, error) {
+	var desc sql.NullString
+	if description != nil {
+		desc = sql.NullString{String: *description, Valid: true}
+	}
+	row, err := r.queries.UpdateCampaign(ctx, repositorygen.UpdateCampaignParams{
+		ID:          id,
+		Name:        name,
+		Description: desc,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return campaign.Campaign{}, port.ErrNotFound
+		}
+		return campaign.Campaign{}, err
+	}
+	return toCampaignDomain(row), nil
+}
+
+func (r *PostgresCampaignRepository) DeleteCampaign(ctx context.Context, id uuid.UUID) error {
+	n, err := r.queries.DeleteCampaign(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return port.ErrNotFound
+	}
+	return nil
+}
+
 func toCampaignDomain(row repositorygen.Campaign) campaign.Campaign {
 	return campaign.Campaign{
 		ID:          row.ID,
