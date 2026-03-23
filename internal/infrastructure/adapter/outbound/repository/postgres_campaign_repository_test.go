@@ -239,3 +239,42 @@ func TestPostgresCampaignMemberRepository_GetMember_NotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, port.ErrNotFound)
 }
+
+func TestPostgresCampaignMemberRepository_Delete_RemovesMember(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
+
+	userID := createTestUser(t, db)
+	campaignRepo := repository.NewPostgresCampaignRepository(db)
+	memberRepo := repository.NewPostgresCampaignMemberRepository(db)
+	ctx := context.Background()
+
+	cID, _ := uuid.NewV7()
+	gmID, _ := uuid.NewV7()
+	now := time.Now()
+	c := campaign.Campaign{ID: cID, UserID: userID, Name: "C", CreatedAt: now, UpdatedAt: now}
+	gm := campaign.Member{ID: gmID, CampaignID: cID, UserID: userID, Role: permission.RoleGM, CreatedAt: now, UpdatedAt: now}
+	require.NoError(t, campaignRepo.CreateCampaignWithMember(ctx, c, gm))
+
+	invitedID := createTestUser(t, db)
+	mID, _ := uuid.NewV7()
+	member := campaign.Member{ID: mID, CampaignID: cID, UserID: invitedID, Role: permission.RolePlayer, CreatedAt: now, UpdatedAt: now}
+	require.NoError(t, memberRepo.CreateCampaignMember(ctx, member))
+
+	require.NoError(t, memberRepo.DeleteCampaignMember(ctx, cID, invitedID))
+
+	_, err := memberRepo.GetCampaignMember(ctx, cID, invitedID)
+	assert.ErrorIs(t, err, port.ErrNotFound)
+}
+
+func TestPostgresCampaignMemberRepository_Delete_NotFound(t *testing.T) {
+	db := openTestDB(t)
+	cleanDB(t, db)
+
+	memberRepo := repository.NewPostgresCampaignMemberRepository(db)
+
+	err := memberRepo.DeleteCampaignMember(context.Background(), uuid.New(), uuid.New())
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, port.ErrNotFound)
+}

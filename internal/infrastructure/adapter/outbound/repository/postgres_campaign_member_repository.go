@@ -45,6 +45,20 @@ func (r *PostgresCampaignMemberRepository) GetCampaignMember(ctx context.Context
 	return toCampaignMemberDomain(row), nil
 }
 
+func (r *PostgresCampaignMemberRepository) DeleteCampaignMember(ctx context.Context, campaignID, userID uuid.UUID) error {
+	n, err := r.queries.DeleteCampaignMember(ctx, repositorygen.DeleteCampaignMemberParams{
+		CampaignID: campaignID,
+		UserID:     userID,
+	})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return port.ErrNotFound
+	}
+	return nil
+}
+
 func toCampaignMemberDomain(row repositorygen.CampaignMember) campaign.Member {
 	return campaign.Member{
 		ID:         row.ID,
