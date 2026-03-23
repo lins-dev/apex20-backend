@@ -36,6 +36,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createRolePermissionStmt, err = db.PrepareContext(ctx, createRolePermission); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateRolePermission: %w", err)
 	}
+	if q.deleteCampaignStmt, err = db.PrepareContext(ctx, deleteCampaign); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCampaign: %w", err)
+	}
 	if q.deleteCampaignMemberStmt, err = db.PrepareContext(ctx, deleteCampaignMember); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCampaignMember: %w", err)
 	}
@@ -72,6 +75,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.softDeleteRolePermissionStmt, err = db.PrepareContext(ctx, softDeleteRolePermission); err != nil {
 		return nil, fmt.Errorf("error preparing query SoftDeleteRolePermission: %w", err)
 	}
+	if q.updateCampaignStmt, err = db.PrepareContext(ctx, updateCampaign); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCampaign: %w", err)
+	}
 	if q.updateCampaignMemberRoleStmt, err = db.PrepareContext(ctx, updateCampaignMemberRole); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCampaignMemberRole: %w", err)
 	}
@@ -101,6 +107,11 @@ func (q *Queries) Close() error {
 	if q.createRolePermissionStmt != nil {
 		if cerr := q.createRolePermissionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createRolePermissionStmt: %w", cerr)
+		}
+	}
+	if q.deleteCampaignStmt != nil {
+		if cerr := q.deleteCampaignStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCampaignStmt: %w", cerr)
 		}
 	}
 	if q.deleteCampaignMemberStmt != nil {
@@ -163,6 +174,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing softDeleteRolePermissionStmt: %w", cerr)
 		}
 	}
+	if q.updateCampaignStmt != nil {
+		if cerr := q.updateCampaignStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCampaignStmt: %w", cerr)
+		}
+	}
 	if q.updateCampaignMemberRoleStmt != nil {
 		if cerr := q.updateCampaignMemberRoleStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCampaignMemberRoleStmt: %w", cerr)
@@ -216,6 +232,7 @@ type Queries struct {
 	createCampaignMemberStmt     *sql.Stmt
 	createPermissionStmt         *sql.Stmt
 	createRolePermissionStmt     *sql.Stmt
+	deleteCampaignStmt           *sql.Stmt
 	deleteCampaignMemberStmt     *sql.Stmt
 	existsAnyPermissionStmt      *sql.Stmt
 	getCampaignByIDStmt          *sql.Stmt
@@ -228,6 +245,7 @@ type Queries struct {
 	listRolePermissionsStmt      *sql.Stmt
 	softDeletePermissionStmt     *sql.Stmt
 	softDeleteRolePermissionStmt *sql.Stmt
+	updateCampaignStmt           *sql.Stmt
 	updateCampaignMemberRoleStmt *sql.Stmt
 	updatePermissionStmt         *sql.Stmt
 }
@@ -240,6 +258,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createCampaignMemberStmt:     q.createCampaignMemberStmt,
 		createPermissionStmt:         q.createPermissionStmt,
 		createRolePermissionStmt:     q.createRolePermissionStmt,
+		deleteCampaignStmt:           q.deleteCampaignStmt,
 		deleteCampaignMemberStmt:     q.deleteCampaignMemberStmt,
 		existsAnyPermissionStmt:      q.existsAnyPermissionStmt,
 		getCampaignByIDStmt:          q.getCampaignByIDStmt,
@@ -252,6 +271,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listRolePermissionsStmt:      q.listRolePermissionsStmt,
 		softDeletePermissionStmt:     q.softDeletePermissionStmt,
 		softDeleteRolePermissionStmt: q.softDeleteRolePermissionStmt,
+		updateCampaignStmt:           q.updateCampaignStmt,
 		updateCampaignMemberRoleStmt: q.updateCampaignMemberRoleStmt,
 		updatePermissionStmt:         q.updatePermissionStmt,
 	}

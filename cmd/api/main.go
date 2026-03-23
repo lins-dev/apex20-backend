@@ -57,6 +57,10 @@ func main() {
 
 	campaignUC := http.CampaignUseCases{
 		Create: usecase.NewCreateCampaignUseCase(campaignRepo),
+		List:   usecase.NewListCampaignsUseCase(campaignRepo),
+		Get:    usecase.NewGetCampaignUseCase(campaignRepo),
+		Update: usecase.NewUpdateCampaignUseCase(campaignRepo),
+		Delete: usecase.NewDeleteCampaignUseCase(campaignRepo),
 	}
 	http.RegisterCampaignHandler(server.GetAPI(), campaignUC)
 
