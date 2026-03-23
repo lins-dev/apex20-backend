@@ -51,6 +51,10 @@ type MemberInviter interface {
 	Execute(ctx context.Context, input InviteMemberInput) (campaign.Member, error)
 }
 
+type MemberRemover interface {
+	Execute(ctx context.Context, campaignID, userID uuid.UUID) error
+}
+
 type MemberRoleGetter interface {
 	Execute(ctx context.Context, campaignID, userID uuid.UUID) (permission.Role, error)
 }

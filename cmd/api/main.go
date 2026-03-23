@@ -55,6 +55,8 @@ func main() {
 	}
 	http.RegisterRoleHandler(server.GetAPI(), roleUC)
 
+	campaignMemberRepo := repository.NewPostgresCampaignMemberRepository(db)
+
 	campaignUC := http.CampaignUseCases{
 		Create: usecase.NewCreateCampaignUseCase(campaignRepo),
 		List:   usecase.NewListCampaignsUseCase(campaignRepo),
@@ -63,6 +65,12 @@ func main() {
 		Delete: usecase.NewDeleteCampaignUseCase(campaignRepo),
 	}
 	http.RegisterCampaignHandler(server.GetAPI(), campaignUC)
+
+	campaignMemberUC := http.CampaignMemberUseCases{
+		Invite: usecase.NewInviteMemberUseCase(campaignMemberRepo),
+		Remove: usecase.NewRemoveMemberUseCase(campaignMemberRepo),
+	}
+	http.RegisterCampaignMemberHandler(server.GetAPI(), campaignMemberUC)
 
 
 	port := os.Getenv("PORT")
