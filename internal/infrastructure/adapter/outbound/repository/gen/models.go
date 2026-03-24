@@ -23,12 +23,13 @@ type Campaign struct {
 }
 
 type CampaignMember struct {
-	ID         uuid.UUID     `json:"id"`
-	CampaignID uuid.UUID     `json:"campaign_id"`
-	UserID     uuid.UUID     `json:"user_id"`
-	Role       apex20v1.Role `json:"role"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	CampaignID  uuid.UUID      `json:"campaign_id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	Role        apex20v1.Role  `json:"role"`
+	DisplayName sql.NullString `json:"display_name"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type Permission struct {
@@ -50,12 +51,13 @@ type RolePermission struct {
 }
 
 type User struct {
-	ID           uuid.UUID    `json:"id"`
-	Email        string       `json:"email"`
-	Name         string       `json:"name"`
-	PasswordHash string       `json:"password_hash"`
-	IsAdmin      bool         `json:"is_admin"`
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
-	DeletedAt    sql.NullTime `json:"deleted_at"`
+	ID           uuid.UUID      `json:"id"`
+	Email        string         `json:"email"`
+	Name         string         `json:"name"`
+	PasswordHash string         `json:"password_hash"`
+	Nick         sql.NullString `json:"nick"`
+	IsAdmin      bool           `json:"is_admin"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    sql.NullTime   `json:"deleted_at"`
 }
