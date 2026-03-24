@@ -7,6 +7,7 @@ package repositorygen
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	apex20v1 "github.com/apex20/contracts/proto/apex20/v1"
@@ -14,17 +15,18 @@ import (
 )
 
 const createCampaignMember = `-- name: CreateCampaignMember :exec
-INSERT INTO campaign_members (id, campaign_id, user_id, role, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO campaign_members (id, campaign_id, user_id, role, display_name, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateCampaignMemberParams struct {
-	ID         uuid.UUID     `json:"id"`
-	CampaignID uuid.UUID     `json:"campaign_id"`
-	UserID     uuid.UUID     `json:"user_id"`
-	Role       apex20v1.Role `json:"role"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	CampaignID  uuid.UUID      `json:"campaign_id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	Role        apex20v1.Role  `json:"role"`
+	DisplayName sql.NullString `json:"display_name"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) CreateCampaignMember(ctx context.Context, arg CreateCampaignMemberParams) error {
@@ -33,6 +35,7 @@ func (q *Queries) CreateCampaignMember(ctx context.Context, arg CreateCampaignMe
 		arg.CampaignID,
 		arg.UserID,
 		arg.Role,
+		arg.DisplayName,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -58,7 +61,7 @@ func (q *Queries) DeleteCampaignMember(ctx context.Context, arg DeleteCampaignMe
 }
 
 const getCampaignMember = `-- name: GetCampaignMember :one
-SELECT id, campaign_id, user_id, role, created_at, updated_at FROM campaign_members
+SELECT id, campaign_id, user_id, role, display_name, created_at, updated_at FROM campaign_members
 WHERE campaign_id = $1 AND user_id = $2
 `
 
@@ -75,6 +78,7 @@ func (q *Queries) GetCampaignMember(ctx context.Context, arg GetCampaignMemberPa
 		&i.CampaignID,
 		&i.UserID,
 		&i.Role,
+		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -82,7 +86,7 @@ func (q *Queries) GetCampaignMember(ctx context.Context, arg GetCampaignMemberPa
 }
 
 const listCampaignMembers = `-- name: ListCampaignMembers :many
-SELECT id, campaign_id, user_id, role, created_at, updated_at FROM campaign_members
+SELECT id, campaign_id, user_id, role, display_name, created_at, updated_at FROM campaign_members
 WHERE campaign_id = $1
 ORDER BY created_at
 `
@@ -101,6 +105,7 @@ func (q *Queries) ListCampaignMembers(ctx context.Context, campaignID uuid.UUID)
 			&i.CampaignID,
 			&i.UserID,
 			&i.Role,
+			&i.DisplayName,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -115,6 +120,23 @@ func (q *Queries) ListCampaignMembers(ctx context.Context, campaignID uuid.UUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCampaignMemberDisplayName = `-- name: UpdateCampaignMemberDisplayName :exec
+UPDATE campaign_members
+SET display_name = $3, updated_at = NOW()
+WHERE campaign_id = $1 AND user_id = $2
+`
+
+type UpdateCampaignMemberDisplayNameParams struct {
+	CampaignID  uuid.UUID      `json:"campaign_id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	DisplayName sql.NullString `json:"display_name"`
+}
+
+func (q *Queries) UpdateCampaignMemberDisplayName(ctx context.Context, arg UpdateCampaignMemberDisplayNameParams) error {
+	_, err := q.exec(ctx, q.updateCampaignMemberDisplayNameStmt, updateCampaignMemberDisplayName, arg.CampaignID, arg.UserID, arg.DisplayName)
+	return err
 }
 
 const updateCampaignMemberRole = `-- name: UpdateCampaignMemberRole :exec

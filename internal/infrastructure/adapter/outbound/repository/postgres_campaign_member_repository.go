@@ -22,12 +22,13 @@ func NewPostgresCampaignMemberRepository(db *sql.DB) *PostgresCampaignMemberRepo
 
 func (r *PostgresCampaignMemberRepository) CreateCampaignMember(ctx context.Context, m campaign.Member) error {
 	return r.queries.CreateCampaignMember(ctx, repositorygen.CreateCampaignMemberParams{
-		ID:         m.ID,
-		CampaignID: m.CampaignID,
-		UserID:     m.UserID,
-		Role:       m.Role,
-		CreatedAt:  m.CreatedAt,
-		UpdatedAt:  m.UpdatedAt,
+		ID:          m.ID,
+		CampaignID:  m.CampaignID,
+		UserID:      m.UserID,
+		Role:        m.Role,
+		DisplayName: sql.NullString{String: m.DisplayName, Valid: m.DisplayName != ""},
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
 	})
 }
 
@@ -61,11 +62,12 @@ func (r *PostgresCampaignMemberRepository) DeleteCampaignMember(ctx context.Cont
 
 func toCampaignMemberDomain(row repositorygen.CampaignMember) campaign.Member {
 	return campaign.Member{
-		ID:         row.ID,
-		CampaignID: row.CampaignID,
-		UserID:     row.UserID,
-		Role:       row.Role,
-		CreatedAt:  row.CreatedAt,
-		UpdatedAt:  row.UpdatedAt,
+		ID:          row.ID,
+		CampaignID:  row.CampaignID,
+		UserID:      row.UserID,
+		Role:        row.Role,
+		DisplayName: row.DisplayName.String,
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
 	}
 }

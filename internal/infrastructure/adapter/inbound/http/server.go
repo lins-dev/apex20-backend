@@ -75,3 +75,7 @@ func (s *ChiServer) GetHandler() http.Handler {
 func (s *ChiServer) GetAPI() huma.API {
 	return s.api
 }
+
+func (s *ChiServer) Mount(pattern string, handler http.Handler) {
+	s.router.Mount(pattern, handler)
+}

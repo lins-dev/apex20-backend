@@ -15,13 +15,17 @@ type Querier interface {
 	CreateCampaignMember(ctx context.Context, arg CreateCampaignMemberParams) error
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) error
 	CreateRolePermission(ctx context.Context, arg CreateRolePermissionParams) error
+	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteCampaign(ctx context.Context, id uuid.UUID) (int64, error)
 	DeleteCampaignMember(ctx context.Context, arg DeleteCampaignMemberParams) (int64, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
 	ExistsAnyPermission(ctx context.Context) (bool, error)
 	GetCampaignByID(ctx context.Context, id uuid.UUID) (Campaign, error)
 	GetCampaignMember(ctx context.Context, arg GetCampaignMemberParams) (CampaignMember, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	GetRolePermissionByID(ctx context.Context, id uuid.UUID) (RolePermission, error)
+	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
 	ListCampaignMembers(ctx context.Context, campaignID uuid.UUID) ([]CampaignMember, error)
 	ListCampaignsByUserID(ctx context.Context, userID uuid.UUID) ([]Campaign, error)
 	ListPermissions(ctx context.Context) ([]Permission, error)
@@ -29,8 +33,10 @@ type Querier interface {
 	SoftDeletePermission(ctx context.Context, arg SoftDeletePermissionParams) (int64, error)
 	SoftDeleteRolePermission(ctx context.Context, arg SoftDeleteRolePermissionParams) (int64, error)
 	UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (Campaign, error)
+	UpdateCampaignMemberDisplayName(ctx context.Context, arg UpdateCampaignMemberDisplayNameParams) error
 	UpdateCampaignMemberRole(ctx context.Context, arg UpdateCampaignMemberRoleParams) error
 	UpdatePermission(ctx context.Context, arg UpdatePermissionParams) error
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (UpdateUserRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

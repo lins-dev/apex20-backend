@@ -1,14 +1,20 @@
 package main
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
+	"encoding/pem"
 	"log"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/apex20/backend/internal/application/usecase"
 	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
+	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/crypto"
+	jwtinfra "github.com/apex20/backend/internal/infrastructure/adapter/outbound/jwt"
 	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/repository"
 )
 
@@ -26,6 +32,17 @@ func main() {
 
 	if err := db.Ping(); err != nil {
 		log.Fatalf("connecting to database: %v", err)
+	}
+
+	privateKey := mustLoadRSAPrivateKey(os.Getenv("JWT_PRIVATE_KEY_PEM"))
+
+	hasher := crypto.NewArgon2PasswordHasher()
+	tokenGen := jwtinfra.NewRSATokenGenerator(privateKey, 24*time.Hour)
+	userRepo := repository.NewPostgresUserRepository(db)
+
+	authUC := http.AuthUseCases{
+		SignUp: usecase.NewSignUpUseCase(userRepo, hasher, tokenGen),
+		SignIn: usecase.NewSignInUseCase(userRepo, hasher, tokenGen),
 	}
 
 	permRepo := repository.NewPostgresPermissionRepository(db)
@@ -71,7 +88,14 @@ func main() {
 		Remove: usecase.NewRemoveMemberUseCase(campaignMemberRepo),
 	}
 	http.RegisterCampaignMemberHandler(server.GetAPI(), campaignMemberUC)
+	http.RegisterAuthHandler(server, authUC)
 
+	userUC := http.UserUseCases{
+		Get:    usecase.NewGetUserUseCase(userRepo),
+		Update: usecase.NewUpdateUserUseCase(userRepo),
+		Delete: usecase.NewDeleteUserUseCase(userRepo),
+	}
+	http.RegisterUserHandler(server.GetAPI(), userUC)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -81,4 +105,23 @@ func main() {
 	if err := server.Start(port); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
+}
+
+func mustLoadRSAPrivateKey(pemStr string) *rsa.PrivateKey {
+	if pemStr == "" {
+		log.Fatal("JWT_PRIVATE_KEY_PEM is required")
+	}
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		log.Fatal("JWT_PRIVATE_KEY_PEM: invalid PEM block")
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		log.Fatalf("JWT_PRIVATE_KEY_PEM: %v", err)
+	}
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		log.Fatal("JWT_PRIVATE_KEY_PEM: not an RSA key")
+	}
+	return rsaKey
 }
