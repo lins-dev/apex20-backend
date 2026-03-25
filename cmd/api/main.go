@@ -6,13 +6,16 @@ import (
 	"database/sql"
 	"encoding/pem"
 	"log"
+	nethttp "net/http"
 	"os"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/rs/cors"
 
 	"github.com/apex20/backend/internal/application/usecase"
 	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
+	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http/middleware"
 	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/crypto"
 	jwtinfra "github.com/apex20/backend/internal/infrastructure/adapter/outbound/jwt"
 	"github.com/apex20/backend/internal/infrastructure/adapter/outbound/repository"
@@ -35,9 +38,11 @@ func main() {
 	}
 
 	privateKey := mustLoadRSAPrivateKey(os.Getenv("JWT_PRIVATE_KEY_PEM"))
+	publicKey := mustLoadRSAPublicKey(os.Getenv("JWT_PUBLIC_KEY_PEM"))
 
 	hasher := crypto.NewArgon2PasswordHasher()
 	tokenGen := jwtinfra.NewRSATokenGenerator(privateKey, 24*time.Hour)
+	tokenValidator := jwtinfra.NewRSATokenValidator(publicKey)
 	userRepo := repository.NewPostgresUserRepository(db)
 
 	authUC := http.AuthUseCases{
@@ -102,7 +107,32 @@ func main() {
 		port = "8080"
 	}
 
-	if err := server.Start(port); err != nil {
+	jwtMw := middleware.JWTAuth(tokenValidator,
+		"/health",
+		"/apex20.v1.AuthService/",
+		"/docs",
+		"/openapi",
+	)
+
+	// CORS — permite requisições do frontend (browser) para o backend.
+	// AllowedHeaders inclui os headers exigidos pelo protocolo ConnectRPC.
+	corsMw := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Authorization",
+			"Content-Type",
+			"Connect-Protocol-Version",
+			"Connect-Timeout-Ms",
+			"X-User-Agent",
+		},
+		ExposedHeaders: []string{"Content-Type"},
+		MaxAge:         7200,
+	})
+
+	log.Printf("Backend server starting on :%s...", port)
+	log.Printf("OpenAPI documentation available at :%s/docs", port)
+	if err := nethttp.ListenAndServe(":"+port, corsMw.Handler(jwtMw(server.GetHandler()))); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
@@ -122,6 +152,25 @@ func mustLoadRSAPrivateKey(pemStr string) *rsa.PrivateKey {
 	rsaKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
 		log.Fatal("JWT_PRIVATE_KEY_PEM: not an RSA key")
+	}
+	return rsaKey
+}
+
+func mustLoadRSAPublicKey(pemStr string) *rsa.PublicKey {
+	if pemStr == "" {
+		log.Fatal("JWT_PUBLIC_KEY_PEM is required")
+	}
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		log.Fatal("JWT_PUBLIC_KEY_PEM: invalid PEM block")
+	}
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		log.Fatalf("JWT_PUBLIC_KEY_PEM: %v", err)
+	}
+	rsaKey, ok := key.(*rsa.PublicKey)
+	if !ok {
+		log.Fatal("JWT_PUBLIC_KEY_PEM: not an RSA key")
 	}
 	return rsaKey
 }

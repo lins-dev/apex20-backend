@@ -11,6 +11,7 @@ import (
 
 	"github.com/apex20/backend/internal/application/port"
 	"github.com/apex20/backend/internal/domain/campaign"
+	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http/middleware"
 )
 
 // CampaignUseCases agrupa os use cases necessários para as rotas de campanha.
@@ -33,9 +34,8 @@ type campaignResponse struct {
 
 type createCampaignInput struct {
 	Body struct {
-		UserID      uuid.UUID `json:"user_id"`
-		Name        string    `json:"name" minLength:"1" maxLength:"255"`
-		Description string    `json:"description"`
+		Name        string `json:"name" minLength:"1" maxLength:"255"`
+		Description string `json:"description"`
 	}
 }
 
@@ -43,9 +43,7 @@ type createCampaignOutput struct {
 	Body campaignResponse
 }
 
-type listCampaignsInput struct {
-	UserID uuid.UUID `query:"user_id" required:"true"`
-}
+type listCampaignsInput struct{}
 
 type listCampaignsOutput struct {
 	Body []campaignResponse
@@ -85,8 +83,12 @@ func RegisterCampaignHandler(api huma.API, uc CampaignUseCases) {
 		Tags:          []string{"Campaigns"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, input *createCampaignInput) (*createCampaignOutput, error) {
+		claims, ok := middleware.ClaimsFromContext(ctx)
+		if !ok {
+			return nil, huma.Error401Unauthorized("authentication required")
+		}
 		c, err := uc.Create.Execute(ctx, port.CreateCampaignInput{
-			UserID:      input.Body.UserID,
+			UserID:      claims.UserID,
 			Name:        input.Body.Name,
 			Description: input.Body.Description,
 		})
@@ -102,8 +104,12 @@ func RegisterCampaignHandler(api huma.API, uc CampaignUseCases) {
 		Path:        "/campaigns",
 		Summary:     "List Campaigns",
 		Tags:        []string{"Campaigns"},
-	}, func(ctx context.Context, input *listCampaignsInput) (*listCampaignsOutput, error) {
-		campaigns, err := uc.List.Execute(ctx, input.UserID)
+	}, func(ctx context.Context, _ *listCampaignsInput) (*listCampaignsOutput, error) {
+		claims, ok := middleware.ClaimsFromContext(ctx)
+		if !ok {
+			return nil, huma.Error401Unauthorized("authentication required")
+		}
+		campaigns, err := uc.List.Execute(ctx, claims.UserID)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list campaigns", err)
 		}
@@ -121,6 +127,9 @@ func RegisterCampaignHandler(api huma.API, uc CampaignUseCases) {
 		Summary:     "Get Campaign",
 		Tags:        []string{"Campaigns"},
 	}, func(ctx context.Context, input *getCampaignInput) (*getCampaignOutput, error) {
+		if _, ok := middleware.ClaimsFromContext(ctx); !ok {
+			return nil, huma.Error401Unauthorized("authentication required")
+		}
 		c, err := uc.Get.Execute(ctx, input.ID)
 		if err != nil {
 			if errors.Is(err, port.ErrNotFound) {
@@ -138,10 +147,13 @@ func RegisterCampaignHandler(api huma.API, uc CampaignUseCases) {
 		Summary:     "Update Campaign",
 		Tags:        []string{"Campaigns"},
 	}, func(ctx context.Context, input *updateCampaignInput) (*updateCampaignOutput, error) {
+		if _, ok := middleware.ClaimsFromContext(ctx); !ok {
+			return nil, huma.Error401Unauthorized("authentication required")
+		}
 		c, err := uc.Update.Execute(ctx, port.UpdateCampaignInput{
 			ID:          input.ID,
 			Name:        input.Body.Name,
-			Description: input.Body.Description, // *string — nil grava NULL
+			Description: input.Body.Description,
 		})
 		if err != nil {
 			if errors.Is(err, port.ErrNotFound) {
@@ -160,6 +172,9 @@ func RegisterCampaignHandler(api huma.API, uc CampaignUseCases) {
 		Tags:          []string{"Campaigns"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, input *deleteCampaignInput) (*struct{}, error) {
+		if _, ok := middleware.ClaimsFromContext(ctx); !ok {
+			return nil, huma.Error401Unauthorized("authentication required")
+		}
 		if err := uc.Delete.Execute(ctx, input.ID); err != nil {
 			if errors.Is(err, port.ErrNotFound) {
 				return nil, huma.Error404NotFound("campaign not found")

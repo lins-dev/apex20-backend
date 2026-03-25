@@ -17,6 +17,7 @@ import (
 	"github.com/apex20/backend/internal/application/usecase"
 	"github.com/apex20/backend/internal/domain/campaign"
 	adapter "github.com/apex20/backend/internal/infrastructure/adapter/inbound/http"
+	"github.com/apex20/backend/internal/infrastructure/adapter/inbound/http/middleware"
 )
 
 // --- stubs for create ---
@@ -97,13 +98,21 @@ func newServerWithCampaignStubs(
 	return server
 }
 
+// withAuth injects auth claims into the request context, simulating the JWT middleware in unit tests.
+func withAuth(r *http.Request, userID uuid.UUID) *http.Request {
+	return r.WithContext(middleware.WithAuthClaims(r.Context(), port.AuthClaims{UserID: userID}))
+}
+
+// --- tests ---
+
 func TestCampaignHandler_Create_ReturnsCreatedCampaign(t *testing.T) {
 	server := newServerWithCampaigns()
 	userID := uuid.New()
 
-	body := `{"user_id":"` + userID.String() + `","name":"Campanha Teste","description":"Uma desc"}`
+	body := `{"name":"Campanha Teste","description":"Uma desc"}`
 	req := httptest.NewRequest(http.MethodPost, "/campaigns", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = withAuth(req, userID)
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -120,13 +129,26 @@ func TestCampaignHandler_Create_ReturnsCreatedCampaign(t *testing.T) {
 func TestCampaignHandler_Create_ReturnsBadRequestOnMissingName(t *testing.T) {
 	server := newServerWithCampaigns()
 
-	body := `{"user_id":"` + uuid.New().String() + `","name":""}`
+	body := `{"name":""}`
+	req := httptest.NewRequest(http.MethodPost, "/campaigns", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withAuth(req, uuid.New())
+	rr := httptest.NewRecorder()
+	server.GetHandler().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+}
+
+func TestCampaignHandler_Create_Returns401WhenNotAuthenticated(t *testing.T) {
+	server := newServerWithCampaigns()
+
+	body := `{"name":"Campanha","description":""}`
 	req := httptest.NewRequest(http.MethodPost, "/campaigns", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
 
 func TestCampaignHandler_List_ReturnsCampaigns(t *testing.T) {
@@ -142,7 +164,8 @@ func TestCampaignHandler_List_ReturnsCampaigns(t *testing.T) {
 		&stubCampaignDeleter{},
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/campaigns?user_id="+userID.String(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/campaigns", nil)
+	req = withAuth(req, userID)
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -152,14 +175,14 @@ func TestCampaignHandler_List_ReturnsCampaigns(t *testing.T) {
 	assert.Len(t, resp, 2)
 }
 
-func TestCampaignHandler_List_ReturnsBadRequestOnMissingUserID(t *testing.T) {
+func TestCampaignHandler_List_Returns401WhenNotAuthenticated(t *testing.T) {
 	server := newServerWithCampaigns()
 
 	req := httptest.NewRequest(http.MethodGet, "/campaigns", nil)
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
 
 func TestCampaignHandler_Get_ReturnsCampaign(t *testing.T) {
@@ -172,6 +195,7 @@ func TestCampaignHandler_Get_ReturnsCampaign(t *testing.T) {
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/campaigns/"+id.String(), nil)
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -191,6 +215,7 @@ func TestCampaignHandler_Get_ReturnsNotFound(t *testing.T) {
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/campaigns/"+uuid.New().String(), nil)
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -204,6 +229,7 @@ func TestCampaignHandler_Update_ReturnsUpdatedCampaign(t *testing.T) {
 	body := `{"name":"Novo Nome","description":"Nova Desc"}`
 	req := httptest.NewRequest(http.MethodPut, "/campaigns/"+id.String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -225,6 +251,7 @@ func TestCampaignHandler_Update_ReturnsNotFound(t *testing.T) {
 	body := `{"name":"X"}`
 	req := httptest.NewRequest(http.MethodPut, "/campaigns/"+uuid.New().String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -237,6 +264,7 @@ func TestCampaignHandler_Update_ReturnsBadRequestOnMissingName(t *testing.T) {
 	body := `{"name":""}`
 	req := httptest.NewRequest(http.MethodPut, "/campaigns/"+uuid.New().String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -247,6 +275,7 @@ func TestCampaignHandler_Delete_ReturnsNoContent(t *testing.T) {
 	server := newServerWithCampaigns()
 
 	req := httptest.NewRequest(http.MethodDelete, "/campaigns/"+uuid.New().String(), nil)
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
@@ -262,6 +291,7 @@ func TestCampaignHandler_Delete_ReturnsNotFound(t *testing.T) {
 	)
 
 	req := httptest.NewRequest(http.MethodDelete, "/campaigns/"+uuid.New().String(), nil)
+	req = withAuth(req, uuid.New())
 	rr := httptest.NewRecorder()
 	server.GetHandler().ServeHTTP(rr, req)
 
