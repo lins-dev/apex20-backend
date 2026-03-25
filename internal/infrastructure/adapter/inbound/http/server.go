@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -62,12 +61,6 @@ func (s *ChiServer) RegisterRoute(method, path string, handler http.HandlerFunc)
 	s.router.MethodFunc(method, path, handler)
 }
 
-func (s *ChiServer) Start(port string) error {
-	fmt.Printf("Backend server starting on :%s...\n", port)
-	fmt.Printf("OpenAPI documentation available at :%s/docs\n", port)
-	return http.ListenAndServe(":"+port, s.router)
-}
-
 func (s *ChiServer) GetHandler() http.Handler {
 	return s.router
 }
@@ -79,3 +72,4 @@ func (s *ChiServer) GetAPI() huma.API {
 func (s *ChiServer) Mount(pattern string, handler http.Handler) {
 	s.router.Mount(pattern, handler)
 }
+
